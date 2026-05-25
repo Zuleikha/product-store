@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Store</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 20px; margin-bottom: 24px; }
+    form { display: flex; gap: 8px; margin-bottom: 24px; }
+    input { border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 14px; }
+    button { padding: 6px 14px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 14px; background: #fff; }
+    button.primary { background: #000; color: #fff; border-color: #000; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; border-bottom: 2px solid #eee; padding: 8px 6px; }
+    td { padding: 10px 6px; border-bottom: 1px solid #eee; }
+    .error { color: red; font-size: 13px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Product Store</h1>
+
+  <form id="addForm">
+    <input id="name" placeholder="Product name" required />
+    <input id="price" type="number" placeholder="Price" min="0.01" step="0.01" required />
+    <button type="submit" class="primary">Add product</button>
+  </form>
+  <p class="error" id="formError"></p>
+
+  <table>
+    <thead><tr><th>ID</th><th>Name</th><th>Price</th><th></th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script>
+    const API = 'http://localhost:5000';
+
+    async function load() {
+      const res = await fetch(`${API}/products`);
+      const data = await res.json();
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = data.map(p => `
+        <tr>
+          <td>${p.id}</td>
+          <td>${p.name}</td>
+          <td>€${p.price.toFixed(2)}</td>
+          <td><button onclick="del(${p.id})">Delete</button></td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('addForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const price = parseFloat(document.getElementById('price').value);
+      const err = document.getElementById('formError');
+      err.textContent = '';
+      try {
+        const res = await fetch(`${API}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, price })
+        });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+        document.getElementById('name').value = '';
+        document.getElementById('price').value = '';
+        load();
+      } catch(e) {
+        err.textContent = e.message;
+      }
+    });
+
+    async function del(id) {
+      await fetch(`${API}/products/${id}`, { method: 'DELETE' });
+      load();
+    }
+
+    load();
+  </script>
+</body>
+</html>

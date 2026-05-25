@@ -1,9 +1,22 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, send_from_directory
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.')
 
 products = {}
 next_product_id = 1
+
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    return response
+
+
+@app.route('/')
+def serve_frontend():
+    return send_from_directory('.', 'index.html')
 
 
 def validate_product_data(data, is_update=False):

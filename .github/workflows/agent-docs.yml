@@ -1,0 +1,62 @@
+name: Agent PR Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  copilot-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch PR diff
+        run: |
+          git fetch origin "refs/pull/${{ github.event.pull_request.number }}/head"
+          git checkout -qf FETCH_HEAD
+          git --no-pager diff --name-only origin/${{ github.base_ref }}...HEAD > changed_files.txt
+          git --no-pager diff origin/${{ github.base_ref }}...HEAD > full_diff.patch
+
+      - name: Try Copilot CLI review
+        id: copilot-run
+        env:
+          COPILOT_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+        run: |
+          if [ -n "$COPILOT_TOKEN" ]; then
+            echo "COPILOT_TOKEN available — attempting to install Copilot CLI"
+            npm install -g @githubnext/copilot-cli || true
+            if command -v copilot >/dev/null 2>&1; then
+              echo "Running Copilot review..."
+              # Copilot CLI usage may vary; maintainers should ensure the installed CLI supports a review command that
+              # accepts a diff or PR number. This step attempts to generate a summary to `copilot_summary.txt`.
+              copilot review --diff full_diff.patch --output copilot_summary.txt || true
+            else
+              echo "Copilot CLI not available after install"
+            fi
+          else
+            echo "COPILOT_TOKEN not set — skipping Copilot review step"
+          fi
+
+      - name: Ensure a summary file exists
+        run: |
+          if [ -f copilot_summary.txt ]; then
+            echo "Copilot summary found"
+          else
+            echo "### Automated PR Review" > copilot_summary.txt
+            echo "\n**Note:** GitHub Copilot review was not run. To enable automatic Copilot PR reviews, set the `COPILOT_TOKEN` secret and ensure the Copilot CLI is available.\n" >> copilot_summary.txt
+            echo "\n**Changed files:**" >> copilot_summary.txt
+            sed -n '1,200p' changed_files.txt >> copilot_summary.txt || true
+            echo "\n\n(If you'd like, configure the repository to provide Copilot CLI access or supply a different review tool.)" >> copilot_summary.txt
+          fi
+
+      - name: Post PR review comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-file: copilot_summary.txt

@@ -9,6 +9,7 @@ Quick start
 1. Create virtual environment: `python -m venv .venv`
 2. Activate it and install dependencies (if any).
 3. Run: `python app.py`
+4. Open `http://localhost:5000` in your browser.
 
 Contributions
 Feel free to open issues or pull requests on GitHub.
